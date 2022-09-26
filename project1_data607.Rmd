@@ -1,0 +1,96 @@
+---
+title: "Proejct1_data607"
+author: "Mahmud Hasan Al Raji"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+```{r }
+library(RCurl)
+library(data.table)
+library(tidyr)
+library(readr)
+library(stringr)
+library(dplyr)
+```
+
+## Read the text files 
+
+```{r }
+lines<-read_lines("F:\\CUNY masters\\project1_data_607\\7645617.txt")
+lines[1:10]
+```
+## Creating two data frames with player data and round data from text_file
+
+```{r }
+chess_player<-c()
+chess_round<-c()
+
+ for (i in seq(5, 195, 3)) {
+  row5 <- unlist(strsplit(lines[i], '\\|'))
+  player_num <- as.numeric(gsub(' ', '', row5[1]))
+  player_name <- str_trim(row5[2])
+  total_point <- str_trim(row5[3])
+  
+  row6 <- unlist(strsplit(lines[i+1], '\\|'))
+  player_state <- str_trim(row6[1])
+  player_pre_rating <- unlist(str_extract_all(row6[2], "[[:digit:]]+"))[2]
+  
+  chess_player<- rbind(chess_player, c(player_num, player_name, player_state, total_point, player_pre_rating))
+  df1 <- data.frame(row5[4:10])
+  df1$player_num <- player_num
+  df1$player_pre_rating <- player_pre_rating
+  
+  chess_round<- rbind(chess_round,df1)
+}
+```
+
+## Get the player data into a data frame
+
+```{r }
+
+df2 <- data.frame(chess_player)
+colnames(df2) <- c("player_num", "player_name", "player_state", "total_point", "player_pre_rating")
+head(df2)
+```
+## Get the round data into a data frame by doing some string cleaning and data conversion. 
+
+```{r }
+colnames(chess_round) <- c("win_loss_opponent_id", "player_num", "player_pre_rating")
+chess_round$win_loss <- sapply(strsplit(as.character(chess_round$win_loss_opponent_id), ' '), '[', 1)
+chess_round$opponent_id <- sapply(chess_round$win_loss_opponent_id, function(x)gsub('\\s+', ' ', x))
+chess_round$opponent_id <- as.numeric(sapply(strsplit(as.character(chess_round$opponent_id), ' '), '[', 2))
+chess_round$player_pre_rating <- as.numeric(chess_round$player_pre_rating)
+chess_round<- chess_round[, c('player_num', 'win_loss', 'opponent_id', 'player_pre_rating')]
+head(chess_round)
+```
+
+## Calculating average and merging player and round data frame into one data frame 
+
+```{r }
+
+col_01 <- c('player_name', 'player_state', 'total_point', 'player_pre_rating', 'avg')
+avg_pre <- chess_round%>% group_by(opponent_id) %>% summarise(avg = as.integer(mean(player_pre_rating)), .groups='drop')
+
+df2 <- merge(df2, avg_pre, by.x="player_num", by.y="opponent_id")[, col_01]
+df2$total_point<-as.numeric(df2$total_point)
+head(df2)
+```
+
+## Save result into a csv file and read the csv file to check
+
+```{r }
+write.csv(df2,"chess_game_file.csv")
+csv_file<-read.csv("chess_game_file.csv")
+csv_file
+```
+
+
+
+
